@@ -1,0 +1,31 @@
+model:
+  name: mavln
+  image_encoder:
+    type: dino_siglip
+    dino_version: v2
+    siglip_version: large
+    fusion: concat_mlp
+    freeze: true
+  text_encoder:
+    type: llama2
+    freeze: true
+    version: 7b
+
+training:
+  device: cuda
+  seed: 42
+  lr: 1e-5
+  epochs: 50
+  gradient_clip: 1.0
+
+data:
+  file_root: "./data"
+  train_path: "./data/train"
+  val_path: "./data/val"
+  test_path: "./data/test"
+  num_workers: 4
+  shuffle: true
+  batch_size: 32
+  num_agents: 6
+  history_frames: 3
+  normalize_images: false
