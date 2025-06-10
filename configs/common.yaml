@@ -1,15 +1,16 @@
 model:
   name: mavln
-  image_encoder:
-    type: dino_siglip
-    dino_version: v2
-    siglip_version: large
-    fusion: concat_mlp
-    freeze: true
-  text_encoder:
-    type: llama2
-    freeze: true
-    version: 7b
+  mantis_path: "./Mantis/mantis-model"
+  # action map
+  action_map:
+    0: "stop"
+    1: "go straight"
+    2: "turn left"
+    3: "turn right"
+    4: "go up"
+    5: "go down"
+    6: "move left"
+    7: "move right"
 
 training:
   device: cuda
@@ -17,15 +18,17 @@ training:
   lr: 1e-5
   epochs: 50
   gradient_clip: 1.0
+  optimizer: adamw
 
 data:
+  env_id: "env_airsim_16"
   file_root: "./data"
-  train_path: "./data/train"
-  val_path: "./data/val"
-  test_path: "./data/test"
+  train_path: "./data/env_airsim_16/astar_data/high_average"
+  val_path: ./data/env_airsim_16/astar_data/high_average"
+  test_path: "./data/env_airsim_16/astar_data/high_average"
   num_workers: 4
-  shuffle: true
   batch_size: 32
   num_agents: 6
-  history_frames: 3
+  # history_frames: 3
   normalize_images: false
+  shuffle: true

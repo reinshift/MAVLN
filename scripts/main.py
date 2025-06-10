@@ -4,7 +4,8 @@ import logging
 from types import SimpleNamespace
 from train.trainer import Trainer
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO, 
+                    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 def load_config(config_path):

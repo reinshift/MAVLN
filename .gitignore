@@ -1,0 +1,8 @@
+./data
+./LICENSE
+./Mantis
+./.vscode
+
+**/__pycache__
+
+./test_mavln.py
