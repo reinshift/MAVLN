@@ -4,6 +4,8 @@ import os
 import logging
 from typing import List, Dict,  Union
 from transformers import AutoProcessor, AutoModelForVision2Seq
+from Mantis.mantis.models.mllava import MLlavaProcessor, LlavaForConditionalGeneration
+from Mantis.mantis.models.mllava import chat_mllava
 from transformers.generation import GenerationConfig
 from PIL import Image
 import yaml
@@ -27,26 +29,35 @@ class MAVLN(nn.Module):
         if not os.path.exists(model_path):
             logger.error(f"Mantis model path {model_path} not found")
 
-        self.processor = AutoProcessor.from_pretrained("TIGER-Lab/Mantis-8B-Idefics2")
-        
-        if hasattr(self.processor, "tokenizer"):
-            tokenizer = self.processor.tokenizer
-        else:
-            tokenizer = self.processor
-            
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-            
-        self.model = AutoModelForVision2Seq.from_pretrained(
-            model_path,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            trust_remote_code=True,
-        )
-        self.model.generation_config = GenerationConfig.from_pretrained(model_path)
-        self.model.generation_config.max_new_tokens = 512
-        self.model.generation_config.temperature = 0.7
-        self.model.generation_config.top_p = 0.9
+        if config.model.maitis_type == "Idefics2":
+            self.processor = AutoProcessor.from_pretrained("TIGER-Lab/Mantis-8B-Idefics2")
+            if hasattr(self.processor, "tokenizer"):
+                tokenizer = self.processor.tokenizer
+            else:
+                tokenizer = self.processor
+                
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+                
+            self.model = AutoModelForVision2Seq.from_pretrained(
+                model_path,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+                trust_remote_code=True,
+            )
+            self.model.generation_config = GenerationConfig.from_pretrained(model_path)
+            self.model.generation_config.max_new_tokens = 512
+            self.model.generation_config.temperature = 0.7
+            self.model.generation_config.top_p = 0.9            
+        elif config.model.maitis_type == "default":
+            self.processor = MLlavaProcessor.from_pretrained("TIGER-Lab/Mantis-8B-siglip-llama3")
+            attn_implementation = None
+            self.model = LlavaForConditionalGeneration.from_pretrained(config.model.mantis_path,
+                                                       device_map="auto",
+                                                       torch_dtype=torch.bfloat16,
+                                                       resume_download=True,
+                                                       force_download=True,
+                                                       attn_implementation=attn_implementation)
 
         logger.info("model initialized.")
 
@@ -95,7 +106,7 @@ class MAVLN(nn.Module):
             self,
             agent_images: List[List[Image.Image]],
             instructions: List[str] = None,
-            return_logits: bool = False,
+            return_logits: bool = False, # TODO: post training will use logits
     ) -> Union[Dict[str, torch.Tensor], str]:
         """
         Args:
@@ -113,36 +124,45 @@ class MAVLN(nn.Module):
 
         # build prompt
         prompt_text = self.build_prompt(agent_images, instructions)
-        
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    *[{"type": "image"} for _ in all_images],
-                    {"type": "text", "text": prompt_text}
-                ]
-            }
-        ]
-        prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
-        inputs = self.processor(text=prompt, images=all_images, return_tensors="pt")
-        if 'pixel_attention_mask' in inputs:
-            del inputs['pixel_attention_mask']
+
+        if self.config.model.maitis_type == "Idefics2":
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        *[{"type": "image"} for _ in all_images],
+                        {"type": "text", "text": prompt_text}
+                    ]
+                }
+            ]
+            prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
+            inputs = self.processor(text=prompt, images=all_images, return_tensors="pt")
+            if 'pixel_attention_mask' in inputs:
+                del inputs['pixel_attention_mask']
+                
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
             
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        
-        if return_logits:
-            with torch.no_grad():
-                outputs = self.model(
-                    **inputs,
-                    output_hidden_states=True
-                )
-            return {
-                "logits": outputs.logits,
-                "hidden_states": outputs.hidden_states,
-                "image_hidden_states": outputs.image_hidden_states if hasattr(outputs, "image_hidden_states") else None
+            if return_logits:
+                with torch.no_grad():
+                    outputs = self.model(
+                        **inputs,
+                        output_hidden_states=True
+                    )
+                return {
+                    "logits": outputs.logits,
+                    "hidden_states": outputs.hidden_states,
+                    "image_hidden_states": outputs.image_hidden_states if hasattr(outputs, "image_hidden_states") else None
+                }
+            
+            return self.generate_response(inputs)
+        elif self.config.model.maitis_type == "default":
+            generation_kwargs = {
+                "max_new_tokens": 1024,
+                "num_beams": 1,
+                "do_sample": False
             }
-        
-        return self.generate_response(inputs)
+            response, _ = chat_mllava(prompt_text, all_images, self.model, self.processor, **generation_kwargs)
+            return response
     
     def generate_response(self, inputs: Dict[str, torch.Tensor]) -> str:
         """
@@ -210,11 +230,22 @@ class MAVLN(nn.Module):
         # Convert to object with attribute access
         class Config:
             def __init__(self, d):
+                self._dict_props = {}
                 for k, v in d.items():
                     if isinstance(v, dict):
-                        setattr(self, k, Config(v))
+                        # For dictionaries with integer keys (like action_map)
+                        if any(isinstance(key, int) for key in v.keys()):
+                            self._dict_props[k] = v
+                        else:
+                            setattr(self, k, Config(v))
                     else:
                         setattr(self, k, v)
+            
+            def __getattr__(self, name):
+                # Check if this is a stored dictionary property
+                if hasattr(self, '_dict_props') and name in self._dict_props:
+                    return self._dict_props[name]
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         
         config = Config(config_dict)
         return cls(config)

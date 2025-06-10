@@ -46,7 +46,7 @@ class ParquetReader:
         logger.info(f"Creating {split} dataloader...")
         
         # load huggingface dataset to get instruction
-        openfly_dataset = load_dataset("IPEC-COMMUNITY/OpenFly", split='train')
+        openfly_dataset = load_dataset("IPEC-COMMUNITY/OpenFly", split='train', num_proc=os.cpu_count()//2)
 
         gpt_instructions = self._extract_instruction(openfly_dataset)
 

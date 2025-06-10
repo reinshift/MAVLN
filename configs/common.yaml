@@ -1,6 +1,7 @@
 model:
   name: mavln
   mantis_path: "./Mantis/mantis-model"
+  maitis_type: default # Idefics2 or default
   # action map
   action_map:
     0: "stop"
