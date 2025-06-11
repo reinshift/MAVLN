@@ -153,7 +153,7 @@ def test_multi_agent_trajectories(model, dataset, traj_ids, save_dir=None):
 def main():
     parser = argparse.ArgumentParser(description='Test MAVLN model')
     parser.add_argument('--config', type=str, default='../configs/common.yaml', help='Configuration file path')
-    parser.add_argument('--save_dir', type=str, default='results', help='Save directory')
+    parser.add_argument('--save_dir', type=str, default='../results', help='Save directory')
     parser.add_argument('--num_tests', type=int, default=3, help='Test times')
     args = parser.parse_args()
     
