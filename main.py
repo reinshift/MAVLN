@@ -3,6 +3,7 @@ import yaml
 import logging
 from types import SimpleNamespace
 from train.trainer import Trainer
+import scripts.test_mavln as test_mavln
 
 logging.basicConfig(level=logging.INFO, 
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -27,9 +28,9 @@ def dict_to_namespace(d):
             setattr(namespace, key, value)
     return namespace
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", type=str, default="./configs/train.yaml")
+    parser.add_argument("--config_path", type=str, default="./configs/common.yaml")
     parser.add_argument("--mode", type=str, default="train")
     args = parser.parse_args()
     config = load_config(args.config_path)
@@ -42,3 +43,9 @@ if __name__ == "__main__":
         logger.info("Evaluating model...")
         trainer = Trainer(config)
         trainer.evaluate()
+    elif args.mode == "test":
+        logger.info("Testing model...")
+        test_mavln.main()
+
+if __name__ == "__main__":
+    main()

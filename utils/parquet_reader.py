@@ -6,6 +6,7 @@ from torchvision import transforms
 import logging
 import tqdm
 import os
+import time
 
 import io
 import pandas as pd
@@ -46,8 +47,11 @@ class ParquetReader:
         logger.info(f"Creating {split} dataloader...")
         
         # load huggingface dataset to get instruction
+        start_time = time.time()
         openfly_dataset = load_dataset("IPEC-COMMUNITY/OpenFly", split='train', num_proc=os.cpu_count()//2)
-
+        end_time = time.time()
+        logger.info(f"Time taken to load dataset:{end_time - start_time}")
+        
         gpt_instructions = self._extract_instruction(openfly_dataset)
 
         # Get directories based on split
