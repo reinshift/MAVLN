@@ -4,7 +4,7 @@ Use Mantis as base model, to generate multiple actions for every agents simultan
 
 ## Quick Usage
 Before running, you have to download Mantis model to make the files like:
-```bash
+```
 .
 ├── configs
 ├── Mantis 

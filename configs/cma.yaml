@@ -12,6 +12,8 @@ model:
     6: "move left"
     7: "move right"
   output_para_num: true
+  continue_train: false
+  pretrained_path: "./pretrained_CMA/cma_20250612_100000.pth"
 
 training:
   device: cuda
@@ -20,16 +22,17 @@ training:
   epochs: 50
   gradient_clip: 1.0
   optimizer: adamw
+  if_warmup: true
 
 data:
   env_id: "env_airsim_16"
   file_root: "./data"
-  train_path: "./data/env_airsim_16/astar_data/high_average"
-  val_path: ./data/env_airsim_16/astar_data/high_average"
+  train_path: "./data/env_airsim_16/astar_data/low_average"
+  val_path: ./data/env_airsim_16/astar_data/low_short"
   test_path: "./data/env_airsim_16/astar_data/high_average"
   num_workers: 4
   batch_size: 32
   num_agents: 6
   # history_frames: 3
-  normalize_images: false
+  normalize_images: true
   shuffle: true

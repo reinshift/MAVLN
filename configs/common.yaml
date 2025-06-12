@@ -20,6 +20,7 @@ training:
   epochs: 50
   gradient_clip: 1.0
   optimizer: adamw
+  if_warmup: true
 
 data:
   env_id: "env_airsim_16"
