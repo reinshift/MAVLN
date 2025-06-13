@@ -46,13 +46,12 @@ class Attention(nn.Module):
         """
         batch_size = vision_feat.size(0)
 
-        vision_proj = self.vision_proj(vision_feat)
         instr_proj = self.instruction_proj(instr_feat)
 
         # calculate attention
         q = self.query(instr_feat).view(batch_size, 1, -1) # [batch_size, 1, hidden_dim]
-        k = self.key(vision_feat).view(batch_size, -1, 1) # [batch_size, hidden_dim, 1]
-        v = self.value(vision_feat).view(batch_size, -1, 1) # [batch_size, hidden_dim, 1]
+        k = self.key(vision_feat).view(batch_size, 1, -1) # [batch_size, 1, hidden_dim]
+        v = self.value(vision_feat).view(batch_size, 1, -1) # [batch_size, 1, hidden_dim]
 
         attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)  # [B, 1, 1]
         attn_probs = F.softmax(attn_scores, dim=-1) # [B, 1, 1]
@@ -181,13 +180,15 @@ class CMA(nn.Module):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-        path = os.path.join(save_dir, f"cma_{time.strftime('%Y%m%d_%H%M%S')}.pth")
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        path = os.path.join(save_dir, f"cma_{timestamp}.pth")
 
         torch.save({
             'model_state_dict': self.state_dict(),
             'config': self.config,
         }, path)
         logger.info(f"CMA model saved to {path}")
+        return path
     
     def load_model(self, path):
         import os

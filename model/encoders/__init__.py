@@ -1,0 +1,2 @@
+from .resnet_encoders import ResnetEncoder
+from .instruction_encoder import InstructionEncoder, InstructionBertEncoder

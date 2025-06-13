@@ -19,7 +19,7 @@ training:
   lr: 1e-5
   epochs: 50
   gradient_clip: 1.0
-  optimizer: adamw
+  optimizer: adamw # adamw or adam
   if_warmup: true
 
 data:

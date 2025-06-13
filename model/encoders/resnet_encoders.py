@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torchvision.models as models
 """
@@ -10,7 +9,7 @@ class ResnetEncoder(nn.Module):
     def __init__(self, output_size=512):
         super(ResnetEncoder, self).__init__()
         self.feature_dim = 2048
-        resnet = models.resnet50(pretrained=True)
+        resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
         
         # remove the last layer of resnet
         self.resnet_features = nn.Sequential(*list(resnet.children())[:-1])

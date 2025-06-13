@@ -1,19 +1,13 @@
 import argparse
-import yaml
 import logging
 from types import SimpleNamespace
 from train.trainer import Trainer
 import scripts.test_mavln as test_mavln
+from utils.ConfigParser import load_config
 
 logging.basicConfig(level=logging.INFO, 
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-def load_config(config_path):
-    with open(config_path, "r") as f:
-        config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    config = dict_to_namespace(config_dict)
-    return config
 
 def dict_to_namespace(d):
     if not isinstance(d, dict):
@@ -30,7 +24,7 @@ def dict_to_namespace(d):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", type=str, default="./configs/common.yaml")
+    parser.add_argument("--config_path", type=str, default="./configs/cma.yaml")
     parser.add_argument("--mode", type=str, default="train")
     args = parser.parse_args()
     config = load_config(args.config_path)

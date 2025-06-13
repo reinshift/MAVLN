@@ -3,6 +3,8 @@ Mantis/
 model/Model/
 data/
 results/
+swanlog/
+checkpoints/
 
 **/__pycache__/
 

@@ -3,7 +3,11 @@ import torch.nn as nn
 from transformers import BertModel, BertTokenizer
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
-class InstructionEncoder(nn.Module):
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
+
+class InstructionEncoder(nn.Module): # TODO: not finished yet
     def __init__(self, vocab_size=30522, embedding_dim=512, nhead=8, 
                  num_encoder_layers=6, dim_feedforward=2048, dropout=0.1):
         super(InstructionEncoder, self).__init__()
@@ -21,6 +25,7 @@ class InstructionEncoder(nn.Module):
         
         self.fc = nn.Linear(embedding_dim, embedding_dim)
         self.tokenizer = None
+        logger.info(f"Initialized Transformer as instruction encoder.")
         
     def forward(self, instruction):
         """
@@ -63,6 +68,7 @@ class InstructionBertEncoder(nn.Module):
             self.dim_adapter = nn.Identity()
             
         self.tokenizer = BertTokenizer.from_pretrained(pretrained_model)
+        logger.info(f"Initialized BERT as instruction encoder.")
         
     def forward(self, instruction):
         """

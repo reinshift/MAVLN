@@ -14,4 +14,6 @@ def InitialModel(config):
         from model.CMA.CMA import CMA
         return CMA(config)
     else:
-        logger.error(f"Invalid model name: {config.model.name}")
+        info = f"Invalid model name: {config.model.name}"
+        logger.error(info)
+        raise ValueError(info)
