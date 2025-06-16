@@ -147,12 +147,14 @@ class Trainer:
             )
             total_loss = 0
             for batch_idx, batch in enumerate(train_loader):
-                if self.if_warmup and epoch < self.warmup_epochs:
+                if self.if_warmup:
                     warmup_progress = global_step / total_warmup_steps
                     current_lr = self.warmup_start_lr + (self.lr - self.warmup_start_lr) * warmup_progress
                     for param_group in self.optimizer.param_groups:
                         param_group['lr'] = current_lr
-                elif not self.if_warmup or epoch >= self.warmup_epochs:
+                    if current_lr >= self.lr:
+                        self.if_warmup = False
+                else:
                     scheduler.step()
 
                 loss = self.epoch_train(model, batch)
