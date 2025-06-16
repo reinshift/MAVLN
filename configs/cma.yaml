@@ -34,7 +34,7 @@ data:
   val_path: "./data/env_airsim_16/astar_data/low_short"
   test_path: "./data/env_airsim_16/astar_data/high_average"
   num_workers: 4
-  batch_size: 64
+  batch_size: 32
   num_agents: 6
   # history_frames: 3
   normalize_images: true
