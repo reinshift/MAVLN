@@ -8,8 +8,8 @@ model:
     1: "go straight"
     2: "turn left"
     3: "turn right"
-    4: "go up"
-    5: "go down"
+    4: "up"
+    5: "down"
     6: "move left"
     7: "move right"
 

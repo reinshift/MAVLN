@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 import torchvision.transforms as transforms
+import yaml
+from utils.ConfigParser import Config
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ class Attention(nn.Module):
 
 class CMA(nn.Module):
     """
-    Cross-Modal Attention (CMA) model
+    Baseline: Cross-Modal Attention (CMA) model
     This model is for single agent training, in multi-agent scenario, will use the same model for all agents.
     """
     def __init__(self, config, hidden_size=512):
@@ -134,6 +136,8 @@ class CMA(nn.Module):
         """take action for single agent"""
         if not isinstance(image, Image.Image):
             img = Image.fromarray(image)
+        else:
+            img = image
         img_tensor = self.image_transform(img).unsqueeze(0).to(self.device)
 
         if instruction is not None:
@@ -149,6 +153,7 @@ class CMA(nn.Module):
         with torch.no_grad():
             action_logits = self.forward(img_tensor, instructions_input)
             action_id = torch.argmax(action_logits, dim=1).cpu().numpy()
+            action_id = action_id.item()
             action_name = self.action_map[action_id]
         
         return action_name
@@ -168,38 +173,78 @@ class CMA(nn.Module):
 
         return action_dict
 
-    def save_model(self, path=None):
-        import time
-        import os
-        folder_name = "pretrain_CMA"
-        if path is None:
-            base_path = os.getcwd()
-        else:
-            base_path = path
-        save_dir = os.path.join(base_path, folder_name)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-        timestamp = time.strftime('%Y%m%d_%H%M%S')
-        path = os.path.join(save_dir, f"cma_{timestamp}.pth")
-
-        torch.save({
-            'model_state_dict': self.state_dict(),
-            'config': self.config,
-        }, path)
-        logger.info(f"CMA model saved to {path}")
-        return path
-    
-    def load_model(self, path):
-        import os
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Model file not found at {path}")
-        checkpoint = torch.load(path)
-        self.load_state_dict(checkpoint['model_state_dict'])
-        self.config = checkpoint['config']
-        logger.info(f"CMA model loaded from {path}")
-
-
     @property
     def _return_paras_count(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
+        
+    @classmethod
+    def from_config_file(cls, config_path: str):
+        """
+        Args:
+            config_path: config file path
+            
+        Returns:
+            CMA model instance
+        """        
+        with open(config_path, "r") as f:
+            config_dict = yaml.safe_load(f)
+        
+        config = Config(config_dict)
+        return cls(config)
+    
+    def save_model(self, path, epoch=None, optimizer=None):
+
+        def config_to_dict(config_obj):
+            if not isinstance(config_obj, Config):
+                return config_obj
+            
+            result = {}
+ 
+            for k, v in config_obj.__dict__.items():
+                if k == '_dict_props':
+                    continue
+                result[k] = config_to_dict(v)
+            
+            if hasattr(config_obj, '_dict_props'):
+                for k, v in config_obj._dict_props.items():
+                    result[k] = v
+                    
+            return result
+        
+        config_dict = config_to_dict(self.config)
+        
+        save_dict = {
+            'model_state_dict': self.state_dict(),
+            'config': config_dict
+        }
+        
+        if epoch is not None:
+            save_dict['epoch'] = epoch
+            
+        if optimizer is not None:
+            save_dict['optimizer_state_dict'] = optimizer.state_dict()
+            
+        torch.save(save_dict, path)
+        logger.info(f"Model saved to {path}")
+        
+    @classmethod
+    def load_model(cls, path, device=None):
+        checkpoint = torch.load(path, map_location=device)
+        
+        def dict_to_config(d):
+            if not isinstance(d, dict):
+                return d
+                
+            config = Config(d)
+            return config
+        
+        config = dict_to_config(checkpoint['config'])
+        
+        model = cls(config)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        
+        if device:
+            model = model.to(device)
+            
+        logger.info(f"Model loaded from {path}")
+        return model, checkpoint

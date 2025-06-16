@@ -7,6 +7,7 @@ from utils.parquet_reader import ParquetReader
 from utils.InitialModel import InitialModel
 import swanlab
 import os
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +55,32 @@ class Trainer:
         else:
             instructions = torch.zeros((len(batch['instruction']), 50), dtype=torch.long).to(self.device)
         converted_action_map = {v: k for k, v in self.config.model.action_map.items()}
-        try:
-            action_ids = torch.tensor([converted_action_map[action] for action in batch['action_type']]).to(self.device)
-        except Exception as e:
-            logger.error(f"Error converting action type: {e}")
-            raise e
+        
+        valid_actions = list(converted_action_map.keys())
+        default_action = "stop"
+        default_id = converted_action_map[default_action]
+        
+        corrected_actions = []
+        
+        action_ids = []
+        for action in batch['action_type']:
+            if action in converted_action_map:
+                action_ids.append(converted_action_map[action])
+            else:
+                closest_match = None
+                min_distance = float('inf')
+                for valid_action in valid_actions:
+                    if abs(len(action) - len(valid_action)) < min_distance:
+                        closest_match = valid_action
+                        min_distance = abs(len(action) - len(valid_action))
+                
+                corrected_actions.append((action, closest_match or default_action))
+                action_ids.append(converted_action_map[closest_match] if closest_match else default_id)
+        
+        if corrected_actions:
+            logger.warning(f"Corrected invalid actions: {corrected_actions}")
+        
+        action_ids = torch.tensor(action_ids).to(self.device)
 
         if self.config.model.name == "cma": # TODO: this writing style is not good, need to be improved: every time we need to check the model name and set criterion
             criterion = nn.CrossEntropyLoss()
@@ -72,7 +94,8 @@ class Trainer:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.gradient_clip)
             self.optimizer.step()
 
-            swanlab.log({"loss": loss.item(), "lr": self.optimizer.param_groups[0]['lr']})
+            current_lr = self.optimizer.param_groups[0]['lr']
+            swanlab.log({"loss": loss.item(), "lr": current_lr})
 
             return loss.item()
         else:
@@ -98,14 +121,17 @@ class Trainer:
         else:
             raise ValueError(f"Optimizer {self.optimizer} not supported")
 
+        # lr scheduler
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.epochs, eta_min=self.warmup_start_lr)
+
         # warmup paras calculation
         total_warmup_steps = self.warmup_epochs * n_batches if n_batches > 0 else 0
         global_step = 0
 
         try:
             if self.config.model.continue_train:
-                logger.info(f"Continue training, loading model from {self.config.model.pretrained_path}")
-                model.load_model(self.config.model.pretrained_path)
+                logger.info(f"Continue training...")
+                model.load_model(self.config.model.pretrained_path, self.device)
         except Exception as e:
             logger.warning(f"{e}: Failed to load model from {self.config.model.pretrained_path}, starting from scratch")
 
@@ -116,6 +142,7 @@ class Trainer:
                 desc=f"Epoch {epoch+1}/{self.epochs}",
                 position=0,
                 leave=True,
+                colour="green"
             )
             total_loss = 0
             for batch_idx, batch in enumerate(train_loader):
@@ -124,12 +151,13 @@ class Trainer:
                     current_lr = self.warmup_start_lr + (self.lr - self.warmup_start_lr) * warmup_progress
                     for param_group in self.optimizer.param_groups:
                         param_group['lr'] = current_lr
+                elif not self.if_warmup or epoch >= self.warmup_epochs:
+                    scheduler.step()
 
                 loss = self.epoch_train(model, batch)
                 global_step += 1
                 total_loss += loss
                 avg_loss = total_loss / (batch_idx + 1)
-                swanlab.log({"avg_loss": avg_loss})
                 progress_bar.set_postfix(
                     loss=f'{loss:.4f}',
                     avg_loss=f'{avg_loss:.4f}'
@@ -144,7 +172,19 @@ class Trainer:
                 if hasattr(self, 'save_dir') and self.save_dir:
                     if not os.path.exists(self.save_dir):
                         os.makedirs(self.save_dir)
-                    save_path = model.save_model(path=self.save_dir)
+                    
+                    timestamp = time.strftime('%Y%m%d_%H%M%S')
+                    base_name = f"{self.config.model.name}_{timestamp}_epoch{epoch+1}"
+                    if self.config.model.continue_train:
+                        save_path = os.path.join(self.save_dir, f"{base_name}_continue.pth")
+                    else:
+                        save_path = os.path.join(self.save_dir, f"{base_name}.pth")
+                    
+                    model.save_model(
+                        path=save_path,
+                        epoch=epoch+1,
+                        optimizer=self.optimizer
+                    )
 
     def evaluate(self):
         pass
