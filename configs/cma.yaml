@@ -7,8 +7,8 @@ model:
     1: "go straight"
     2: "turn left"
     3: "turn right"
-    4: "up"
-    5: "down"
+    4: "go up"
+    5: "go down"
     6: "move left"
     7: "move right"
   output_para_num: true
@@ -25,15 +25,16 @@ training:
   if_warmup: true
   save_dir: "./checkpoints"
   save_interval: 5
+  loss_threshold: 0.005
 
 data:
   env_id: "env_airsim_16"
   file_root: "./data"
-  train_path: "./data/env_airsim_16/astar_data/medium_average_updown"
+  train_path: "./data/env_airsim_16/astar_data/medium_average"
   val_path: "./data/env_airsim_16/astar_data/low_short"
   test_path: "./data/env_airsim_16/astar_data/high_average"
   num_workers: 4
-  batch_size: 32
+  batch_size: 64
   num_agents: 6
   # history_frames: 3
   normalize_images: true

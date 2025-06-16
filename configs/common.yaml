@@ -8,8 +8,8 @@ model:
     1: "go straight"
     2: "turn left"
     3: "turn right"
-    4: "up"
-    5: "down"
+    4: "go up"
+    5: "go down"
     6: "move left"
     7: "move right"
 
@@ -21,6 +21,9 @@ training:
   gradient_clip: 1.0
   optimizer: adamw # adamw or adam
   if_warmup: true
+  save_dir: "./checkpoints"
+  save_interval: 5
+  loss_threshold: 0.005
 
 data:
   env_id: "env_airsim_16"

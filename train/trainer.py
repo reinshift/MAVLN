@@ -26,6 +26,7 @@ class Trainer:
         self.batch_size = config.data.batch_size
         self.save_dir = config.training.save_dir
         self.save_interval = config.training.save_interval
+        self.loss_threshold = config.training.loss_threshold
 
         self.setup_seed()
 
@@ -185,6 +186,10 @@ class Trainer:
                         epoch=epoch+1,
                         optimizer=self.optimizer
                     )
+                
+            if avg_loss < self.loss_threshold:
+                logger.info(f"Early stopping at epoch {epoch+1}")
+                break
 
     def evaluate(self):
         pass
