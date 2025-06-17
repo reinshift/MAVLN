@@ -186,9 +186,9 @@ class Seq2Seq(nn.Module):
             # For other encoders, process accordingly
             instr_feats = self.instruction_encoder(instructions)  # [batch_size, hidden_size]
         
-        # If no history action provided, use zeros
+        # If no history action provided, use -1
         if history_action is None:
-            history_action = torch.zeros((batch_size, 1), device=self.device)
+            history_action = torch.ones((batch_size, 1), device=self.device) * -1
         
         # Concat features
         combined_input = torch.cat([vision_feats, instr_feats, history_action], dim=1)  # [batch_size, 2*hidden_size + 1]

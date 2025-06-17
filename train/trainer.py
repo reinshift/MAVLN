@@ -99,6 +99,22 @@ class Trainer:
             swanlab.log({"loss": loss.item(), "lr": current_lr})
 
             return loss.item()
+        elif self.config.model.name == "seq2seq":
+            criterion = nn.CrossEntropyLoss()
+
+            self.optimizer.zero_grad()
+
+            action_logits = model(images, instructions)
+            loss = criterion(action_logits, action_ids)
+            loss.backward()
+            if self.gradient_clip > 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), self.gradient_clip)
+            self.optimizer.step()
+
+            current_lr = self.optimizer.param_groups[0]['lr']
+            swanlab.log({"loss": loss.item(), "lr": current_lr})
+
+            return loss.item()
         else:
             raise ValueError(f"Model {self.config.model.name} not supported")
 
