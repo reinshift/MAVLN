@@ -13,6 +13,12 @@ def InitialModel(config):
     elif config.model.name == "cma":
         from model.CMA.CMA import CMA
         return CMA(config)
+    elif config.model.name == "seq2seq":
+        from model.Seq2Seq.Seq2Seq import Seq2Seq
+        return Seq2Seq(config)
+    elif config.model.name == "openfly":
+        from model.openvla_7b.OpenFly import OPENFLY
+        return OPENFLY(config)
     else:
         info = f"Invalid model name: {config.model.name}"
         logger.error(info)

@@ -1,6 +1,6 @@
 model:
   name: openfly
-  language_model: llama2-7b
+  language_model: llama2-7b-hf
   # action map
   action_map:
     0: "stop"
