@@ -5,6 +5,7 @@ data/
 results/
 swanlog/
 checkpoints/
+envs/
 
 **/__pycache__/
 
