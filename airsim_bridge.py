@@ -16,29 +16,51 @@ import numpy as np
 from PIL import Image
 import io
 import base64
+import argparse
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger(__name__)
 
 class AirSimBridge:
-    def __init__(self, host="localhost", port=8888, sim_path=None):
+    def __init__(self, host="localhost", port=8888, sim_path=None, config_path=None):
         """
         Args:
             host: host of the Server
             port: port of the Server
             sim_path: path to the simulator, use the default path if not provided
+            config_path: path to the config file
         """
         self.host = host
         self.port = port
-        self.sim_path = sim_path if sim_path is not None else os.path.join(os.path.dirname(__file__),
-                                                                            "envs/airsim/env_airsim_23/LinuxNoEditor/start.sh")
+        self.config_path = config_path
+
+        if sim_path is None:
+            default_paths = [
+                os.path.join(os.path.dirname(__file__), "envs/airsim/env_airsim_23/LinuxNoEditor/start.sh"),
+                "envs/airsim/env_airsim_23/LinuxNoEditor/start.sh"
+            ]
+            for path in default_paths:
+                if os.path.exists(path):
+                    sim_path = path
+                    break
+                
+        self.sim_path = sim_path
         
-        if not os.path.exists(self.sim_path):
-            raise FileNotFoundError(f"Simulator path {self.sim_path} does not exist")
+        if self.sim_path is None or not os.path.exists(self.sim_path):
+            logger.warning(f"Simulator path not found. Please provide a valid path or check default locations.")
+            self.sim_path = None
+        else:
+            logger.info(f"Using simulator path: {self.sim_path}")
         
         self.server_socket = None
         self.client_socket = {} # {uav_id: socket}
         self.sim_process = None
         self.sim_thread = None
+        self.server_thread = None
         self.running = False
         
         # connect to Airsim
@@ -48,6 +70,10 @@ class AirSimBridge:
         self.uav_controllers = {}
 
     def start_simulator(self):
+        if self.sim_path is None:
+            logger.error("Simulator path not set, cannot start simulator")
+            return False
+            
         logger.info(f"Starting simulator: {self.sim_path}")
         try:
             self.sim_process = subprocess.Popen(self.sim_path, shell=True)
@@ -66,6 +92,7 @@ class AirSimBridge:
             self.client = airsim.MultirotorClient()
             self.client.confirmConnection()
             logger.info("Connected to Airsim successfully")
+            return True
         except Exception as e:
             logger.error(f"Failed to connect to Airsim: {str(e)}")
             return False
@@ -80,7 +107,7 @@ class AirSimBridge:
             logger.info(f"listening on {self.host}:{self.port}")
 
             self.running = True
-            self.sim_thread = threading.Thread(target=self._handle_connections)
+            self.server_thread = threading.Thread(target=self._handle_connections)
             self.server_thread.daemon = True
             self.server_thread.start()
             return True
@@ -104,6 +131,7 @@ class AirSimBridge:
                     logger.error(f"Error in connecting to client: {str(e)}")
     
     def _handle_client(self, client_socket, addr):
+        uav_id = None
         try:
             data = client_socket.recv(1024).decode('utf-8')
             if not data:
@@ -145,9 +173,6 @@ class AirSimBridge:
                     logger.info(f"client disconnected")
             except:
                 pass
-
-    def _init_uav_controller(self, uav_id):
-        pass
 
     def _process_client_message(self, uav_id, data, client_socket):
         """process messages from client"""
@@ -279,7 +304,7 @@ class AirSimBridge:
             
             # get image
             responses = self.client.simGetImages([
-                airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)
+                airsim.ImageRequest("front_custom", airsim.ImageType.Scene, False, False)
             ], vehicle_name)
             
             if responses:
@@ -326,19 +351,17 @@ class AirSimBridge:
             elif action == 1:  # go straight
                 self.client.moveByVelocityAsync(1, 0, 0, 1, vehicle_name=vehicle_name)
             elif action == 2:  # turn left
-                self.client.moveByVelocityAsync(-1, 0, 0, 1, vehicle_name=vehicle_name)
+                self.client.rotateByYawRateAsync(-30, 1, vehicle_name=vehicle_name)
             elif action == 3:  # turn right
-                self.client.moveByVelocityAsync(0, -1, 0, 1, vehicle_name=vehicle_name)
+                self.client.rotateByYawRateAsync(30, 1, vehicle_name=vehicle_name)
             elif action == 4:  # go up
-                self.client.moveByVelocityAsync(0, 1, 0, 1, vehicle_name=vehicle_name)
-            elif action == 5:  # go down
                 self.client.moveByVelocityAsync(0, 0, -1, 1, vehicle_name=vehicle_name)
-            elif action == 6:  # move left
+            elif action == 5:  # go down
                 self.client.moveByVelocityAsync(0, 0, 1, 1, vehicle_name=vehicle_name)
+            elif action == 6:  # move left
+                self.client.moveByVelocityAsync(0, -1, 0, 1, vehicle_name=vehicle_name)
             elif action == 7:  # move right
-                self.client.takeoffAsync(vehicle_name=vehicle_name)
-            # elif action == 8:  # land
-            #     self.client.landAsync(vehicle_name=vehicle_name)
+                self.client.moveByVelocityAsync(0, 1, 0, 1, vehicle_name=vehicle_name)  
             else:
                 logger.warning(f"Unknown action ID: {action}, execute stop action")
                 self.client.moveByVelocityAsync(0, 0, 0, 1, vehicle_name=vehicle_name)
@@ -365,7 +388,7 @@ class AirSimBridge:
         self.running = False
         
         # close all client connections
-        for client_socket in self.client_sockets.values():
+        for client_socket in self.client_socket.values():  
             try:
                 client_socket.close()
             except:
@@ -388,9 +411,15 @@ class AirSimBridge:
         
         logger.info("AirSimBridge stopped")
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    bridge = AirSimBridge()
+def main():
+    parser = argparse.ArgumentParser(description='AirSim Bridge Server')
+    parser.add_argument('--host', type=str, default='localhost', help='Host to listen on')
+    parser.add_argument('--port', type=int, default=8888, help='Port to listen on')
+    parser.add_argument('--sim-path', type=str, default=None, help='Path to AirSim simulator')
+    parser.add_argument('--config', type=str, default=None, help='Path to configuration file')
+    args = parser.parse_args()
+    
+    bridge = AirSimBridge(args.host, args.port, args.sim_path, args.config)
     
     if bridge.start():
         try:
@@ -403,3 +432,6 @@ if __name__ == "__main__":
             bridge.stop()
     else:
         logger.error("AirSimBridge started failed")
+
+if __name__ == "__main__":
+    main()
