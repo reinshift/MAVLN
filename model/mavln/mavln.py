@@ -77,7 +77,7 @@ class MAVLN(nn.Module):
 
         # System prompt
         prompt = "You are commanding mutiple UAVs to navigate in an environment. "
-        prompt += "Please based on their current views and instructions, determine the best action for each UAV.\n\n"
+        prompt += "Please base on their current views and instructions, determine the best action for each UAV.\n\n"
 
         # each agent's view and instruction inserted
         for i, agent_img_list in enumerate(agent_images):
@@ -98,7 +98,7 @@ class MAVLN(nn.Module):
 
         prompt += "\nPlease give the action number each UAV should take according their view and instruction:\n"
         prompt += "Format your response as 'Agent 1: [action_number], Agent 2: [action_number], ...' "
-        prompt += "Explain your reasoning for each agent's action.\n"
+        # prompt += "Explain your reasoning for each agent's action.\n" # temporarily remove
 
         return prompt
 
