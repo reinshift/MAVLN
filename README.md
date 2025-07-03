@@ -19,3 +19,5 @@ Before running, you have to download Mantis model to make the files like:
 ```
 
 > During training process we used [swanlab](https://swanlab.cn/) to track experiment logs, if you would not like to record these, just comment out corresponding code in `./train/train.py`
+
+More detailed informations in docs.
